@@ -1,9 +1,11 @@
 import os
 import json
+import boto3
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 
 DISCORD_PUBLIC_KEY = os.environ["DISCORD_PUBLIC_KEY"]
+SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
 INVALID_HEADERS_ERROR = {
     "isBase64Encoded": False,
     "statusCode": 401,
@@ -23,6 +25,22 @@ def handle_ping(**kwargs):
 
 
 def handle_interaction(**kwargs):
+    client = boto3.client("sns")
+    client.publish(
+        TopicArn=SNS_TOPIC_ARN,
+        Message=json.dumps(
+            {
+                "default": "defaultValue",
+                "testKey": "testValue",
+            }
+        ),
+        MessageAttributes={
+            "someAttribute": {
+                "DataType": "String",
+                "StringValue": "someAttributeValue",
+            }
+        },
+    )
     return 200, {"type": 4, "data": {"content": "Hello world!", "flags": 1 << 6}}
 
 

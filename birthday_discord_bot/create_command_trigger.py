@@ -10,7 +10,7 @@ class CreateCommandTrigger(Construct):
         super().__init__(scope, id)
         trigger = triggers.TriggerFunction(
             self,
-            "Handler",
+            "CreateCommand",
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=lambda_code.lambda_code,
             handler="create_command.handler",
