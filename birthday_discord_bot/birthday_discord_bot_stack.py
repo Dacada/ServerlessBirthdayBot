@@ -1,19 +1,10 @@
-from aws_cdk import (
-    # Duration,
-    Stack,
-    # aws_sqs as sqs,
-)
+from aws_cdk import Stack
 from constructs import Construct
+from . import api_proxy_service, create_command_trigger
+
 
 class BirthdayDiscordBotStack(Stack):
-
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        # The code that defines your stack goes here
-
-        # example resource
-        # queue = sqs.Queue(
-        #     self, "BirthdayDiscordBotQueue",
-        #     visibility_timeout=Duration.seconds(300),
-        # )
+        api_proxy_service.BotAPIService(self, "BotAPI")
+        create_command_trigger.CreateCommandTrigger(self, "CreateCommandTrigger")
