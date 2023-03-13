@@ -15,17 +15,23 @@ def handler(event, context):
     r = requests.get(url, headers=headers)
     r.raise_for_status()
     data = r.json()
+    print(f"Existing commands: {data}")
+
+    # Retrieve commands we should have
+    names = set(command["name"] for command in bot_commands.all_commands)
+    print(f"Commands we should have: {names}")
 
     # Delete commands we don't have
-    names = set(command["name"] for command in bot_commands.all_commands)
     for command in data:
         if command["name"] not in names:
+            print(f"Delete command {command['name']}")
             url = ENDPOINT + "/commands/" + command["id"]
             requests.delete(url, headers=headers)
 
     # Add all commands we do have, overwriting them
     url = ENDPOINT + "/commands"
     for command in bot_commands.all_commands:
+        print(f"Create/update command {command['name']}")
         json = {
             "type": 1,
             "name": command["name"],
