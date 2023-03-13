@@ -2,6 +2,7 @@ import os
 import aws_cdk as cdk
 from constructs import Construct
 from aws_cdk import aws_apigateway, aws_lambda
+from . import lambda_code
 
 
 class BotAPIService(Construct):
@@ -12,17 +13,7 @@ class BotAPIService(Construct):
             self,
             "Handler",
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            code=aws_lambda.Code.from_asset(
-                "resources",
-                bundling=cdk.BundlingOptions(
-                    image=aws_lambda.Runtime.PYTHON_3_8.bundling_image,
-                    command=[
-                        "bash",
-                        "-c",
-                        "pip install --no-cache -r requirements.txt -t /asset-output && cp -au . /asset-output",
-                    ],
-                ),
-            ),
+            code=lambda_code.lambda_code,
             handler="proxy_lambda.handler",
             environment={
                 "DISCORD_PUBLIC_KEY": os.environ["DISCORD_PUBLIC_KEY"],
