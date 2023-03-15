@@ -25,21 +25,24 @@ def handle_ping(**kwargs):
 
 
 def handle_interaction(**kwargs):
+    name = kwargs["data"]["name"]
+    if "options" in kwargs["data"]:
+        for option in kwargs["data"]["options"]:
+            if option["type"] == 1:
+                name += " " + option["name"]
+
     client = boto3.client("sns")
     client.publish(
         TopicArn=SNS_TOPIC_ARN,
-        Message=json.dumps(
-            {
-                "token": kwargs["token"],
-            }
-        ),
+        Message=json.dumps(kwargs),
         MessageAttributes={
             "command": {
                 "DataType": "String",
-                "StringValue": kwargs["data"]["name"],
+                "StringValue": name,
             }
         },
     )
+
     return 200, {"type": 5, "data": {"flags": 1 << 6}}
 
 

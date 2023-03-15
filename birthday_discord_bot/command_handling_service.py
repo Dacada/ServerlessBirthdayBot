@@ -16,25 +16,34 @@ class CommandHandlingService(Construct):
         )
 
         for name, data in bot_commands.all_commands.items():
-            function = aws_lambda.Function(
-                self,
-                f"Command{name.capitalize()}Handler",
-                runtime=aws_lambda.Runtime.PYTHON_3_8,
-                code=lambda_code.lambda_code,
-                handler="bot_commands." + data["handler"],
-                environment={
-                    "DISCORD_APPLICATION_ID": os.environ["DISCORD_APPLICATION_ID"],
-                    "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
+            if data.subcommands is None:
+                self.create_command_lambda(name, data.handler)
+            else:
+                for second_name, second_data in data.subcommands.items():
+                    self.create_command_lambda(
+                        name + " " + second_name, second_data.handler
+                    )
+
+    def create_command_lambda(self, command_name, handler):
+        function = aws_lambda.Function(
+            self,
+            f"Command{''.join([n.capitalize() for n in command_name.split()])}Handler",
+            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            code=lambda_code.lambda_code,
+            handler="bot_commands." + handler,
+            environment={
+                "DISCORD_APPLICATION_ID": os.environ["DISCORD_APPLICATION_ID"],
+                "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
+            },
+            log_retention=aws_logs.RetentionDays.ONE_MONTH,
+        )
+        self.topic.add_subscription(
+            aws_sns_subscriptions.LambdaSubscription(
+                function,
+                filter_policy={
+                    "command": aws_sns.SubscriptionFilter.string_filter(
+                        allowlist=[command_name]
+                    ),
                 },
-                log_retention=aws_logs.RetentionDays.ONE_MONTH,
             )
-            self.topic.add_subscription(
-                aws_sns_subscriptions.LambdaSubscription(
-                    function,
-                    filter_policy={
-                        "command": aws_sns.SubscriptionFilter.string_filter(
-                            allowlist=[name]
-                        ),
-                    },
-                )
-            )
+        )

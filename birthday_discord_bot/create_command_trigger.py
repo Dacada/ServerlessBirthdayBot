@@ -19,4 +19,5 @@ class CreateCommandTrigger(Construct):
                 "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
             },
             log_retention=aws_logs.RetentionDays.ONE_MONTH,
+            timeout=cdk.Duration.seconds(30),
         )
