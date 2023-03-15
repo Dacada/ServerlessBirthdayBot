@@ -1,7 +1,7 @@
 import os
 import aws_cdk as cdk
 from constructs import Construct
-from aws_cdk import aws_apigateway, aws_lambda, aws_sns
+from aws_cdk import aws_apigateway, aws_lambda, aws_sns, aws_logs
 from . import lambda_code
 
 
@@ -19,6 +19,7 @@ class BotAPIService(Construct):
                 "DISCORD_PUBLIC_KEY": os.environ["DISCORD_PUBLIC_KEY"],
                 "SNS_TOPIC_ARN": sns_topic.topic_arn,
             },
+            log_retention=aws_logs.RetentionDays.ONE_MONTH,
         )
         api = aws_apigateway.RestApi(
             self,

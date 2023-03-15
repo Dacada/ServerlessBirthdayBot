@@ -1,7 +1,7 @@
 import os
 import aws_cdk as cdk
 from constructs import Construct
-from aws_cdk import triggers, aws_lambda
+from aws_cdk import triggers, aws_lambda, aws_logs
 from . import lambda_code
 
 
@@ -18,4 +18,5 @@ class CreateCommandTrigger(Construct):
                 "DISCORD_APPLICATION_ID": os.environ["DISCORD_APPLICATION_ID"],
                 "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
             },
+            log_retention=aws_logs.RetentionDays.ONE_MONTH,
         )

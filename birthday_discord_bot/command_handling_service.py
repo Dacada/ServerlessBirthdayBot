@@ -1,7 +1,7 @@
 import os
 import aws_cdk as cdk
 from constructs import Construct
-from aws_cdk import aws_sns, aws_lambda, aws_sns_subscriptions
+from aws_cdk import aws_sns, aws_lambda, aws_sns_subscriptions, aws_logs
 from . import lambda_code
 from resources import bot_commands
 
@@ -26,6 +26,7 @@ class CommandHandlingService(Construct):
                     "DISCORD_APPLICATION_ID": os.environ["DISCORD_APPLICATION_ID"],
                     "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
                 },
+                log_retention=aws_logs.RetentionDays.ONE_MONTH,
             )
             self.topic.add_subscription(
                 aws_sns_subscriptions.LambdaSubscription(
