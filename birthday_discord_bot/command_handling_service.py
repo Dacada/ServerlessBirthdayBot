@@ -15,13 +15,13 @@ class CommandHandlingService(Construct):
             "BotCommandTopic",
         )
 
-        for command in bot_commands.all_commands:
+        for name, data in bot_commands.all_commands.items():
             function = aws_lambda.Function(
                 self,
-                f"Command{command['name'].capitalize()}Handler",
+                f"Command{name.capitalize()}Handler",
                 runtime=aws_lambda.Runtime.PYTHON_3_8,
                 code=lambda_code.lambda_code,
-                handler=f"{command['name']}_command_handler.handler",
+                handler="bot_commands." + data["handler"],
                 environment={
                     "DISCORD_APPLICATION_ID": os.environ["DISCORD_APPLICATION_ID"],
                     "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
@@ -31,8 +31,8 @@ class CommandHandlingService(Construct):
                 aws_sns_subscriptions.LambdaSubscription(
                     function,
                     filter_policy={
-                        "someAttribute": aws_sns.SubscriptionFilter.string_filter(
-                            allowlist=["someAttributeValue"]
+                        "command": aws_sns.SubscriptionFilter.string_filter(
+                            allowlist=[name]
                         ),
                     },
                 )

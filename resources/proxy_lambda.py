@@ -30,18 +30,17 @@ def handle_interaction(**kwargs):
         TopicArn=SNS_TOPIC_ARN,
         Message=json.dumps(
             {
-                "default": "defaultValue",
-                "testKey": "testValue",
+                "token": kwargs["token"],
             }
         ),
         MessageAttributes={
-            "someAttribute": {
+            "command": {
                 "DataType": "String",
-                "StringValue": "someAttributeValue",
+                "StringValue": kwargs["data"]["name"],
             }
         },
     )
-    return 200, {"type": 4, "data": {"content": "Hello world!", "flags": 1 << 6}}
+    return 200, {"type": 5, "data": {"flags": 1 << 6}}
 
 
 TYPE_MAP = [

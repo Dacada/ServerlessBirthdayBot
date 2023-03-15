@@ -18,7 +18,7 @@ def handler(event, context):
     print(f"Existing commands: {data}")
 
     # Retrieve commands we should have
-    names = set(command["name"] for command in bot_commands.all_commands)
+    names = set(bot_commands.all_commands.keys())
     print(f"Commands we should have: {names}")
 
     # Delete commands we don't have
@@ -30,12 +30,12 @@ def handler(event, context):
 
     # Add all commands we do have, overwriting them
     url = ENDPOINT + "/commands"
-    for command in bot_commands.all_commands:
-        print(f"Create/update command {command['name']}")
+    for name, data in bot_commands.all_commands.items():
+        print(f"Create/update command {name}")
         json = {
             "type": 1,
-            "name": command["name"],
-            "description": command["description"],
+            "name": name,
+            "description": data["description"],
         }
         r = requests.post(url, headers=headers, json=json)
         r.raise_for_status()
