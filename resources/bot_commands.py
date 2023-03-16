@@ -132,7 +132,7 @@ def wishing_noremind_handler(**kwargs):
 
 
 @command_handler
-def wishing_period_handler(days, **kwargs):  # TEST AGAIN
+def wishing_period_handler(days, **kwargs):
     return {"content": f"This command would set the wish period to {days}"}
 
 
