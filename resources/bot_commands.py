@@ -3,7 +3,7 @@ import functools
 import json
 import time
 import requests
-from enum import IntEnum
+from enum import Enum, IntEnum
 from dataclasses import dataclass, asdict
 from typing import Optional, Union, Dict
 
@@ -170,6 +170,11 @@ class OptionType(IntEnum):
     NUMBER = 10  # floating point
 
 
+class PermissionType(Enum):
+    Read = 1
+    ReadWrite = 2
+
+
 @dataclass
 class BotOption:
     type: OptionType
@@ -190,6 +195,8 @@ class BotCommand:
     ] = None  # subcommands cannot be nested (e.g., all these should have handlers)
     arguments: Optional[Dict[str, "BotOption"]] = None  # mandatory arguments
     options: Optional[Dict[str, "BotOption"]] = None  # optional options
+    user_data: Optional[PermissionType] = None
+    server_data: Optional[PermissionType] = None
 
 
 all_commands = {
@@ -210,6 +217,8 @@ all_commands = {
             ),
         },
         handler=set_handler.__name__,
+        user_data=PermissionType.ReadWrite,
+        server_data=None,
     ),
     "get": BotCommand(
         description="Retrieve a user's birthday and whether they have a wish set.",
@@ -220,10 +229,14 @@ all_commands = {
             )
         },
         handler=get_handler.__name__,
+        user_data=PermissionType.Read,
+        server_data=None,
     ),
     "retrieve": BotCommand(
         description="Retrieve the birthdays and wishes of all users in the server.",
         handler=retrieve_handler.__name__,
+        user_data=PermissionType.Read,
+        server_data=None,
     ),
     "channel": BotCommand(
         description="Set the channel where the bot will send birthday greetings",
@@ -234,6 +247,8 @@ all_commands = {
             )
         },
         handler=channel_handler.__name__,
+        user_data=None,
+        server_data=PermissionType.ReadWrite,
     ),
     "greeting": BotCommand(
         description="Set the greeting that the bot will use when greeting users for their birthday.",
@@ -244,6 +259,8 @@ all_commands = {
             )
         },
         handler=greeting_handler.__name__,
+        user_data=None,
+        server_data=PermissionType.ReadWrite,
     ),
     "wishing": BotCommand(
         description="Commands relating to seeing/adding/configuring birthday wishes",
@@ -251,18 +268,26 @@ all_commands = {
             "enable": BotCommand(
                 description="Enable wishing system",
                 handler=wishing_enable_handler.__name__,
+                user_data=None,
+                server_data=PermissionType.ReadWrite,
             ),
             "disable": BotCommand(
                 description="Disable wishing system",
                 handler=wishing_disable_handler.__name__,
+                user_data=None,
+                server_data=PermissionType.ReadWrite,
             ),
             "remind": BotCommand(
                 description="Enable reminding users to set a wish before their birthday",
                 handler=wishing_remind_handler.__name__,
+                user_data=None,
+                server_data=PermissionType.ReadWrite,
             ),
             "noremind": BotCommand(
                 description="Disable reminding users to set a wish before their birthday",
                 handler=wishing_noremind_handler.__name__,
+                user_data=None,
+                server_data=PermissionType.ReadWrite,
             ),
             "period": BotCommand(
                 description="Users without a wish will get a DM these many days before their birthday.",
@@ -275,6 +300,8 @@ all_commands = {
                     ),
                 },
                 handler=wishing_period_handler.__name__,
+                user_data=None,
+                server_data=PermissionType.ReadWrite,
             ),
             "message": BotCommand(
                 description="Set the message that the bot will DM to remind to set a wish for people's birthdays.",
@@ -285,6 +312,8 @@ all_commands = {
                     ),
                 },
                 handler=wishing_message_handler.__name__,
+                user_data=None,
+                server_data=PermissionType.ReadWrite,
             ),
             "set": BotCommand(
                 description="Set your birthday wish",
@@ -295,11 +324,15 @@ all_commands = {
                     ),
                 },
                 handler=wishing_wish_handler.__name__,
+                user_data=PermissionType.ReadWrite,
+                server_data=None,
             ),
         },
     ),
     "status": BotCommand(
         description="See the bot's status and configuration",
         handler=status_handler.__name__,
+        user_data=PermissionType.Read,
+        server_data=PermissionType.Read,
     ),
 }
