@@ -82,8 +82,9 @@ def set_handler(day, month, **kwargs):
 
 @command_handler
 def get_handler(_caller, user=None, **kwargs):
+    user_id = user or _caller["id"]
     return {
-        "content": f"This command would show you the birthday and wish of a user. The user would be <@{user or _caller['id']}>"
+        "content": f"This command would show you the birthday and wish of a user. The user would be <@{user_id}>"
     }
 
 
@@ -104,7 +105,8 @@ def channel_handler(channel, **kwargs):
 @command_handler
 def greeting_handler(message, **kwargs):
     return {
-        "content": f"This command would set the greeting the bot sends. It would set it to {message}"
+        "content": f"This command would set the greeting the bot sends. It would set it to {message}",
+        "allowed_mentions": {"parse": []},
     }
 
 
@@ -135,13 +137,20 @@ def wishing_period_handler(days, **kwargs):
 
 @command_handler
 def wishing_message_handler(message, **kwargs):
-    return {"content": f"This command would set the wish message to {message}"}
+    return {
+        "content": f"This command would set the wish message to {message}",
+        "allowed_mentions": {"parse": []},
+    }
 
 
 @command_handler
 def wishing_wish_handler(wish, _caller, **kwargs):
+    user_id = _caller["id"]
     return {
-        "content": f"This command would set the user's wish to {wish} for the user <@{_caller['id']}>"
+        "content": f"This command would set the user's wish to {wish} for the user <@{user_id}>",
+        "allowed_mentions": {
+            "users": [user_id],
+        },
     }
 
 
