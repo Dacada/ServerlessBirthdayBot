@@ -82,11 +82,9 @@ def set_handler(day, month, **kwargs):
 
 @command_handler
 def get_handler(_caller, user=None, **kwargs):
-    # _caller={"avatar": "c806df2e1db0a67ea9874a489bee66b7", "avatar_decoration": null, "discriminator": "7948", "display_name": null, "id": "211575037008936960", "public_flags": 0, "username": "phell"}
-    # other elements of the dict along with options: "options": [{"name": "user", "type": 6, "value": "1034055088165101610"}], "resolved": {"members": {"1034055088165101610": {"avatar": null, "communication_disabled_until": null, "flags": 0, "is_pending": false, "joined_at": "2022-10-24T10:48:14.888000+00:00", "nick": null, "pending": false, "permissions": "1071698660929", "premium_since": null, "roles": []}}, "users": {"1034055088165101610": {"avatar": null, "avatar_decoration": null, "discriminator": "7171", "display_name": null, "id": "1034055088165101610", "public_flags": 0, "username": "this is a test"}}}
     return {
-        "content": f"This command would show you the birthday and wish of a user. The user would be {user or _caller}"
-    }  # TODO: make it a mention (id right now)
+        "content": f"This command would show you the birthday and wish of a user. The user would be <@{user or _caller['id']}>"
+    }
 
 
 @command_handler
@@ -98,10 +96,9 @@ def retrieve_handler(**kwargs):
 
 @command_handler
 def channel_handler(channel, **kwargs):
-    # other elements of the dict along with options: "options": [{"name": "channel", "type": 7, "value": "946078742357364786"}], "resolved": {"channels": {"946078742357364786": {"id": "946078742357364786", "name": "test", "parent_id": "926147508206448701", "permissions": "4398046511103", "type": 0}}}
     return {
-        "content": f"This command would set the channel the bot sends greetings to. It would set it to {channel}"
-    }  # TODO: make it a mention (id right now)
+        "content": f"This command would set the channel the bot sends greetings to. It would set it to <#{channel}>"
+    }
 
 
 @command_handler
@@ -137,15 +134,15 @@ def wishing_period_handler(days, **kwargs):
 
 
 @command_handler
-def wishing_message_handler(message, **kwargs):  # TEST AGAIN
+def wishing_message_handler(message, **kwargs):
     return {"content": f"This command would set the wish message to {message}"}
 
 
 @command_handler
-def wishing_wish_handler(wish, _caller, **kwargs):  # TEST AGAIN
+def wishing_wish_handler(wish, _caller, **kwargs):
     return {
-        "content": f"This command would set the user's wish to {wish} for the user {_caller}"
-    }  # TODO: make it a mention (id right now)
+        "content": f"This command would set the user's wish to {wish} for the user <@{_caller['id']}>"
+    }
 
 
 @command_handler
