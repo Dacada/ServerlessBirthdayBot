@@ -65,6 +65,10 @@ class CommandHandlingService(Construct):
             environment={
                 "DISCORD_APPLICATION_ID": os.environ["DISCORD_APPLICATION_ID"],
                 "DISCORD_BOT_TOKEN": os.environ["DISCORD_BOT_TOKEN"],
+                "USERS_TABLE_REGION": os.environ["AWS_DEFAULT_REGION"],
+                "USERS_TABLE_NAME": self.users_table.table_name,
+                "SERVERS_TABLE_REGION": os.environ["AWS_DEFAULT_REGION"],
+                "SERVERS_TABLE_NAME": self.servers_table.table_name,
             },
             log_retention=aws_logs.RetentionDays.ONE_MONTH,
         )

@@ -18,6 +18,13 @@ class DataLayer(Construct):
             ),
             billing_mode=aws_dynamodb.BillingMode.PAY_PER_REQUEST,
         )
+        self.users.add_global_secondary_index(
+            index_name="users_by_server_index",
+            partition_key=aws_dynamodb.Attribute(
+                name="server_id", type=aws_dynamodb.AttributeType.STRING
+            ),
+            projection_type=aws_dynamodb.ProjectionType.ALL,
+        )
         self.servers = aws_dynamodb.Table(
             self,
             "servers",

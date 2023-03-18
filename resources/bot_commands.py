@@ -6,6 +6,48 @@ import requests
 from enum import Enum, IntEnum
 from dataclasses import dataclass, asdict
 from typing import Optional, Union, Dict
+from pynamodb.exceptions import DoesNotExist
+from pynamodb.models import Model
+from pynamodb.attributes import UnicodeAttribute, NumberAttribute, BooleanAttribute
+from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
+
+WISH_PERIOD = 7
+WISH_MESSAGE = "Your birthday is in {{ daysleft }} in {{ server }}. Set a wish for your birthday with the command {{ setwishcmd }}"
+GREETING_MESSAGE = 'Happy birthday {{ user }}!{% if wish|length %} Their birthday wish is "{{ wish }}".{% else %}They had no birthday wish.{% endif %}'
+
+
+class UsersByServerIndex(GlobalSecondaryIndex):
+    class Meta:
+        index_name = "users_by_server_index"
+        projection = AllProjection
+
+    server_id = UnicodeAttribute(hash_key=True)
+
+
+class Users(Model):
+    class Meta:
+        table_name = os.environ.get("USERS_TABLE_NAME")
+        region = os.environ.get("USERS_TABLE_REGION")
+
+    user_id = UnicodeAttribute(hash_key=True)
+    server_id = UnicodeAttribute(range_key=True)
+    birthday_day = NumberAttribute(null=True)
+    birthday_month = NumberAttribute(null=True)
+    wish = UnicodeAttribute(null=True)
+    users_by_server_index = UsersByServerIndex()
+
+
+class Servers(Model):
+    class Meta:
+        table_name = os.environ.get("SERVERS_TABLE_NAME")
+        region = os.environ.get("SERVERS_TABLE_REGION")
+
+    server_id = UnicodeAttribute(hash_key=True)
+    channel_id = UnicodeAttribute(null=True)
+    greeting = UnicodeAttribute(null=True)
+    wish_reminder_enabled = BooleanAttribute(null=True)
+    wish_reminder_period = NumberAttribute(null=True)
+    wish_reminder_message = UnicodeAttribute(null=True)
 
 
 def request_wrapper(method, *args, **kwargs):
@@ -65,8 +107,15 @@ def command_handler(fun):
                         if option2["type"] > 2:
                             options[option2["name"]] = option2["value"]
             options["_caller"] = message["member"]["user"]
+            options["_current_server_id"] = message["guild_id"]
 
-            payload = fun(**options)
+            try:
+                payload = fun(**options)
+            except Exception as e:
+                payload = {
+                    "content": f"An error occurred while trying to run this command: {e}"
+                }
+
             r = request_wrapper(requests.patch, url, headers=headers, json=payload)
             r.raise_for_status()
 
@@ -74,89 +123,284 @@ def command_handler(fun):
 
 
 @command_handler
-def set_handler(day, month, **kwargs):
-    return {
-        "content": f"This command would set up your birthday. It would set it to {day} {month}"
-    }
-
-
-@command_handler
-def get_handler(_caller, user=None, **kwargs):
-    user_id = user or _caller["id"]
-    return {
-        "content": f"This command would show you the birthday and wish of a user. The user would be <@{user_id}>"
-    }
-
-
-@command_handler
-def retrieve_handler(**kwargs):
-    return {
-        "content": "This command would show you the birthdays and wishes of all users in the server."
-    }
-
-
-@command_handler
-def channel_handler(channel, **kwargs):
-    return {
-        "content": f"This command would set the channel the bot sends greetings to. It would set it to <#{channel}>"
-    }
-
-
-@command_handler
-def greeting_handler(message, **kwargs):
-    return {
-        "content": f"This command would set the greeting the bot sends. It would set it to {message}",
-        "allowed_mentions": {"parse": []},
-    }
-
-
-@command_handler
-def wishing_enable_handler(**kwargs):
-    return {"content": "This command would enable wishing system"}
-
-
-@command_handler
-def wishing_disable_handler(**kwargs):
-    return {"content": "This command would disable wishing system"}
-
-
-@command_handler
-def wishing_remind_handler(**kwargs):
-    return {"content": "This command would enable wish reminding"}
-
-
-@command_handler
-def wishing_noremind_handler(**kwargs):
-    return {"content": "This command would disable wish reminding"}
-
-
-@command_handler
-def wishing_period_handler(days, **kwargs):
-    return {"content": f"This command would set the wish period to {days}"}
-
-
-@command_handler
-def wishing_message_handler(message, **kwargs):
-    return {
-        "content": f"This command would set the wish message to {message}",
-        "allowed_mentions": {"parse": []},
-    }
-
-
-@command_handler
-def wishing_wish_handler(wish, _caller, **kwargs):
+def set_handler(day, month, _caller, _current_server_id, **kwargs):
     user_id = _caller["id"]
+    server_id = _current_server_id
+
+    try:
+        item = Users.get(user_id, server_id)
+    except DoesNotExist:
+        item = Users(user_id, server_id, birthday_day=day, birthday_month=month)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Users.birthday_day.set(day),
+                Users.birthday_month.set(month),
+            ]
+        )
+
+    return {"content": f"Your birthday has been set to {day}/{month}"}
+
+
+@command_handler
+def get_handler(_caller, _current_server_id, user=None, **kwargs):
+    user_id = user or _caller["id"]
+    server_id = _current_server_id
+
+    result = {
+        "content": f"The user <@{user_id}> does not have a birthday nor wish assigned."
+    }
+
+    try:
+        item = Users.get(user_id, server_id)
+    except DoesNotExist:
+        return result
+
+    no_birthday = item.birthday_day is None or item.birthday_month is None
+    no_wish = item.wish is None
+
+    if no_birthday and no_wish:
+        return result
+
+    if no_birthday:
+        birthday_str = f"The user <@{user_id}> does not have a birthday set."
+    else:
+        birthday_str = f"The birthday for <@{user_id}> is {item.birthday_day}/{item.birthday_month}."
+
+    if no_wish:
+        wish_str = "No birthday wish is set for this user."
+    else:
+        wish_str = f'The birthday wish for this user is "{item.wish}".'
+
     return {
-        "content": f"This command would set the user's wish to {wish} for the user <@{user_id}>",
-        "allowed_mentions": {
-            "users": [user_id],
-        },
+        "content": f"{birthday_str} {wish_str}",
+        "allowed_mentions": {"parse": []},
     }
 
 
 @command_handler
-def status_handler(**kwargs):
-    return {"content": "This command would show you the bot's status"}
+def retrieve_handler(_current_server_id, **kwargs):
+    server_id = _current_server_id
+
+    result = []
+    for item in Users.users_by_server_index.query(server_id):
+        user_id = item.user_id
+
+        day = item.birthday_day
+        month = item.birthday_month
+        if day is None or month is None:
+            birthday = "No birthday set."
+        else:
+            birthday = f"{day}/{month}"
+
+        wish = item.wish
+        if wish is None:
+            wish = "No wish set."
+        else:
+            wish = f'"{wish}"'
+
+        result.append(f"<@{user_id}> - {birthday} - {wish}")
+
+    if not result:
+        return {
+            "content": "No birthdays or wishes set up for any users in this server."
+        }
+
+    return {
+        "content": "\n".join(result),
+        "allowed_mentions": {"parse": []},
+    }
+
+
+@command_handler
+def channel_handler(channel, _current_server_id, **kwargs):
+    channel_id = channel
+    server_id = _current_server_id
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        item = Servers(server_id, channel_id=channel_id)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Servers.channel_id.set(channel_id),
+            ]
+        )
+
+    return {
+        "content": f"The channel where greetings will be posted has been set to <#{channel}>"
+    }
+
+
+@command_handler
+def greeting_handler(message, _current_server_id, **kwargs):
+    server_id = _current_server_id
+    greeting = message
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        item = Servers(server_id, greeting=greeting)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Servers.greeting.set(greeting),
+            ]
+        )
+
+    return {
+        "content": f"The greeting the bot sends has been set to:\n{message}",
+        "allowed_mentions": {"parse": []},
+    }
+
+
+@command_handler
+def wishing_enable_handler(_current_server_id, **kwargs):
+    server_id = _current_server_id
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        item = Servers(server_id, wish_reminder_enabled=True)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Servers.wish_reminder_enabled.set(True),
+            ]
+        )
+
+    return {"content": "Wish reminder is enabled"}
+
+
+@command_handler
+def wishing_disable_handler(_current_server_id, **kwargs):
+    server_id = _current_server_id
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        item = Servers(server_id, wish_reminder_enabled=False)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Servers.wish_reminder_enabled.set(False),
+            ]
+        )
+
+    return {"content": "Wish reminder is disabled"}
+
+
+@command_handler
+def wishing_period_handler(days, _current_server_id, **kwargs):
+    server_id = _current_server_id
+    wish_reminder_period = days
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        item = Servers(server_id, wish_reminder_period=wish_reminder_period)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Servers.wish_reminder_period.set(wish_reminder_period),
+            ]
+        )
+
+    return {"content": f"Wish reminder period is set to {wish_reminder_period} days"}
+
+
+@command_handler
+def wishing_message_handler(message, _current_server_id, **kwargs):
+    server_id = _current_server_id
+    wish_reminder_message = message
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        item = Servers(server_id, wish_reminder_message=wish_reminder_message)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Servers.wish_reminder_message.set(wish_reminder_message),
+            ]
+        )
+
+    return {"content": f"Wish reminder message is set to:\n{wish_reminder_message}"}
+
+
+@command_handler
+def wishing_wish_handler(wish, _caller, _current_server_id, **kwargs):
+    user_id = _caller["id"]
+    server_id = _current_server_id
+
+    try:
+        item = Users.get(user_id, server_id)
+    except DoesNotExist:
+        item = Users(user_id, server_id, wish=wish)
+        item.save()
+    else:
+        item.update(
+            actions=[
+                Users.wish.set(wish),
+            ]
+        )
+
+    return {"content": f"Your birthday wish has been set to:\n{wish}"}
+
+
+@command_handler
+def status_handler(_current_server_id, **kwargs):
+    server_id = _current_server_id
+
+    no_channel = "No channel set."
+    reminders_enabled = "Enabled."
+    reminders_disabled = "Disabled."
+
+    try:
+        item = Servers.get(server_id)
+    except DoesNotExist:
+        channel = no_channel
+        reminders = reminders_enabled
+        period = WISH_PERIOD
+        wish_msg = WISH_MESSAGE
+        greet_msg = GREETING_MESSAGE
+    else:
+        if item.channel_id is None:
+            channel = no_channel
+        else:
+            channel = f"<#{item.channel_id}>"
+
+        if item.greeting is None:
+            greet_msg = GREETING_MESSAGE
+        else:
+            greet_msg = item.greeting
+
+        if item.wish_reminder_enabled is None or item.wish_reminder_enabled:
+            reminders = reminders_enabled
+        else:
+            reminders = reminders_disabled
+
+        if item.wish_reminder_period is None:
+            period = WISH_PERIOD
+        else:
+            period = item.wish_reminder_period
+
+        if item.wish_reminder_message is None:
+            wish_msg = WISH_MESSAGE
+        else:
+            wish_msg = item.wish_reminder_message
+
+    return {
+        "content": f"Greetings channel: {channel}\nWish remainders: {reminders}\nWish period: {period} days\nWish message:\n{wish_msg}\nGreeting:\n{greet_msg}\n\nUse the retrieve command to get a list of all wishes in the server by user."
+    }
 
 
 class OptionType(IntEnum):
@@ -266,26 +510,14 @@ all_commands = {
         description="Commands relating to seeing/adding/configuring birthday wishes",
         subcommands={
             "enable": BotCommand(
-                description="Enable wishing system",
+                description="Enable reminding users to set a wish before their birthday",
                 handler=wishing_enable_handler.__name__,
                 user_data=None,
                 server_data=PermissionType.ReadWrite,
             ),
             "disable": BotCommand(
-                description="Disable wishing system",
-                handler=wishing_disable_handler.__name__,
-                user_data=None,
-                server_data=PermissionType.ReadWrite,
-            ),
-            "remind": BotCommand(
-                description="Enable reminding users to set a wish before their birthday",
-                handler=wishing_remind_handler.__name__,
-                user_data=None,
-                server_data=PermissionType.ReadWrite,
-            ),
-            "noremind": BotCommand(
                 description="Disable reminding users to set a wish before their birthday",
-                handler=wishing_noremind_handler.__name__,
+                handler=wishing_disable_handler.__name__,
                 user_data=None,
                 server_data=PermissionType.ReadWrite,
             ),
@@ -332,7 +564,7 @@ all_commands = {
     "status": BotCommand(
         description="See the bot's status and configuration",
         handler=status_handler.__name__,
-        user_data=PermissionType.Read,
+        user_data=None,
         server_data=PermissionType.Read,
     ),
 }
