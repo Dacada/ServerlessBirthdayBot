@@ -5,6 +5,7 @@ from . import (
     create_command_trigger,
     command_handling_service,
     data_layer,
+    periodic_tasks,
 )
 
 
@@ -16,4 +17,5 @@ class BirthdayDiscordBotStack(Stack):
             self, "CommandHandling", data.users, data.servers
         )
         api_proxy_service.BotAPIService(self, "BotAPI", command_handling.topic)
+        periodic_tasks.PeriodicTasks(self, "PeriodicTasks", data.users, data.servers)
         create_command_trigger.CreateCommandTrigger(self, "CreateCommandTrigger")

@@ -7,85 +7,15 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass, asdict
 from typing import Optional, Union, Dict
 from pynamodb.exceptions import DoesNotExist
-from pynamodb.models import Model
-from pynamodb.attributes import UnicodeAttribute, NumberAttribute, BooleanAttribute
-from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
 
-WISH_PERIOD = 7
-WISH_MESSAGE = "Your birthday is in {{ daysleft }} in {{ server }}. Set a wish for your birthday with the command {{ setwishcmd }}"
-GREETING_MESSAGE = 'Happy birthday {{ user }}!{% if wish|length %} Their birthday wish is "{{ wish }}".{% else %}They had no birthday wish.{% endif %}'
-
-
-class UsersByServerIndex(GlobalSecondaryIndex):
-    class Meta:
-        index_name = "users_by_server_index"
-        projection = AllProjection
-
-    server_id = UnicodeAttribute(hash_key=True)
-
-
-class Users(Model):
-    class Meta:
-        table_name = os.environ.get("USERS_TABLE_NAME")
-        region = os.environ.get("USERS_TABLE_REGION")
-
-    user_id = UnicodeAttribute(hash_key=True)
-    server_id = UnicodeAttribute(range_key=True)
-    birthday_day = NumberAttribute(null=True)
-    birthday_month = NumberAttribute(null=True)
-    wish = UnicodeAttribute(null=True)
-    users_by_server_index = UsersByServerIndex()
-
-
-class Servers(Model):
-    class Meta:
-        table_name = os.environ.get("SERVERS_TABLE_NAME")
-        region = os.environ.get("SERVERS_TABLE_REGION")
-
-    server_id = UnicodeAttribute(hash_key=True)
-    channel_id = UnicodeAttribute(null=True)
-    greeting = UnicodeAttribute(null=True)
-    wish_reminder_enabled = BooleanAttribute(null=True)
-    wish_reminder_period = NumberAttribute(null=True)
-    wish_reminder_message = UnicodeAttribute(null=True)
-
-
-def request_wrapper(method, *args, **kwargs):
-    print(
-        f"doing a {method.__name__} request with parameters args={args} kwargs={kwargs}"
-    )
-
-    r = method(*args, **kwargs)
-    print(f"status code = {r.status_code}")
-    print(f"headers = {r.headers}")
-
-    try:
-        text = r.text
-    except:
-        text = None
-    print(f"content = {text}")
-
-    if r.status_code == 429:
-        data = r.json()
-        print(
-            f"rate limit encountered: '{data['message']}', sleeping for {data['retry_after']} seconds and retrying"
-        )
-        time.sleep(data["retry_after"])
-        request_wrapper(method, *args, **kwargs)
-        return
-
-    r.raise_for_status()
-
-    remaining = int(r.headers["X-RateLimit-Remaining"])
-    print(f"Rate limit remaining: {remaining}")
-    if remaining == 0:
-        reset_after = float(r.headers["X-RateLimit-Reset-After"])
-        print(
-            f"Remaining is zero. Sleeping for {reset_after} seconds before continuing"
-        )
-        time.sleep(reset_after)
-
-    return r
+try:
+    from resources import db
+    from resources import default
+    from resources.request_wrapper import request_wrapper
+except ModuleNotFoundError:
+    import db
+    import default
+    from request_wrapper import request_wrapper
 
 
 def command_handler(fun):
@@ -116,8 +46,7 @@ def command_handler(fun):
                     "content": f"An error occurred while trying to run this command: {e}"
                 }
 
-            r = request_wrapper(requests.patch, url, headers=headers, json=payload)
-            r.raise_for_status()
+            request_wrapper(requests.patch, url, headers=headers, json=payload)
 
     return wrapper
 
@@ -128,15 +57,20 @@ def set_handler(day, month, _caller, _current_server_id, **kwargs):
     server_id = _current_server_id
 
     try:
-        item = Users.get(user_id, server_id)
+        item = db.Users.get(user_id, server_id)
     except DoesNotExist:
-        item = Users(user_id, server_id, birthday_day=day, birthday_month=month)
+        item = db.Users(user_id, server_id, birthday_day=day, birthday_month=month)
         item.save()
     else:
+        try:
+            datetime.date(2000, month, day)
+        except ValueError as e:
+            return {"content": f"Could not set birthday: {e}"}
+
         item.update(
             actions=[
-                Users.birthday_day.set(day),
-                Users.birthday_month.set(month),
+                db.Users.birthday_day.set(day),
+                db.Users.birthday_month.set(month),
             ]
         )
 
@@ -153,7 +87,7 @@ def get_handler(_caller, _current_server_id, user=None, **kwargs):
     }
 
     try:
-        item = Users.get(user_id, server_id)
+        item = db.Users.get(user_id, server_id)
     except DoesNotExist:
         return result
 
@@ -184,7 +118,7 @@ def retrieve_handler(_current_server_id, **kwargs):
     server_id = _current_server_id
 
     result = []
-    for item in Users.users_by_server_index.query(server_id):
+    for item in db.Users.users_by_server_index.query(server_id):
         user_id = item.user_id
 
         day = item.birthday_day
@@ -219,14 +153,14 @@ def channel_handler(channel, _current_server_id, **kwargs):
     server_id = _current_server_id
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
-        item = Servers(server_id, channel_id=channel_id)
+        item = db.Servers(server_id, channel_id=channel_id)
         item.save()
     else:
         item.update(
             actions=[
-                Servers.channel_id.set(channel_id),
+                db.Servers.channel_id.set(channel_id),
             ]
         )
 
@@ -241,14 +175,14 @@ def greeting_handler(message, _current_server_id, **kwargs):
     greeting = message
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
-        item = Servers(server_id, greeting=greeting)
+        item = db.Servers(server_id, greeting=greeting)
         item.save()
     else:
         item.update(
             actions=[
-                Servers.greeting.set(greeting),
+                db.Servers.greeting.set(greeting),
             ]
         )
 
@@ -263,14 +197,14 @@ def wishing_enable_handler(_current_server_id, **kwargs):
     server_id = _current_server_id
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
-        item = Servers(server_id, wish_reminder_enabled=True)
+        item = db.Servers(server_id, wish_reminder_enabled=True)
         item.save()
     else:
         item.update(
             actions=[
-                Servers.wish_reminder_enabled.set(True),
+                db.Servers.wish_reminder_enabled.set(True),
             ]
         )
 
@@ -282,14 +216,14 @@ def wishing_disable_handler(_current_server_id, **kwargs):
     server_id = _current_server_id
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
-        item = Servers(server_id, wish_reminder_enabled=False)
+        item = db.Servers(server_id, wish_reminder_enabled=False)
         item.save()
     else:
         item.update(
             actions=[
-                Servers.wish_reminder_enabled.set(False),
+                db.Servers.wish_reminder_enabled.set(False),
             ]
         )
 
@@ -302,14 +236,14 @@ def wishing_period_handler(days, _current_server_id, **kwargs):
     wish_reminder_period = days
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
-        item = Servers(server_id, wish_reminder_period=wish_reminder_period)
+        item = db.Servers(server_id, wish_reminder_period=wish_reminder_period)
         item.save()
     else:
         item.update(
             actions=[
-                Servers.wish_reminder_period.set(wish_reminder_period),
+                db.Servers.wish_reminder_period.set(wish_reminder_period),
             ]
         )
 
@@ -322,14 +256,14 @@ def wishing_message_handler(message, _current_server_id, **kwargs):
     wish_reminder_message = message
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
-        item = Servers(server_id, wish_reminder_message=wish_reminder_message)
+        item = db.Servers(server_id, wish_reminder_message=wish_reminder_message)
         item.save()
     else:
         item.update(
             actions=[
-                Servers.wish_reminder_message.set(wish_reminder_message),
+                db.Servers.wish_reminder_message.set(wish_reminder_message),
             ]
         )
 
@@ -342,14 +276,14 @@ def wishing_wish_handler(wish, _caller, _current_server_id, **kwargs):
     server_id = _current_server_id
 
     try:
-        item = Users.get(user_id, server_id)
+        item = db.Users.get(user_id, server_id)
     except DoesNotExist:
-        item = Users(user_id, server_id, wish=wish)
+        item = db.Users(user_id, server_id, wish=wish)
         item.save()
     else:
         item.update(
             actions=[
-                Users.wish.set(wish),
+                db.Users.wish.set(wish),
             ]
         )
 
@@ -365,13 +299,13 @@ def status_handler(_current_server_id, **kwargs):
     reminders_disabled = "Disabled."
 
     try:
-        item = Servers.get(server_id)
+        item = db.Servers.get(server_id)
     except DoesNotExist:
         channel = no_channel
         reminders = reminders_enabled
-        period = WISH_PERIOD
-        wish_msg = WISH_MESSAGE
-        greet_msg = GREETING_MESSAGE
+        period = default.WISH_PERIOD
+        wish_msg = default.WISH_MESSAGE
+        greet_msg = default.GREETING_MESSAGE
     else:
         if item.channel_id is None:
             channel = no_channel
@@ -379,7 +313,7 @@ def status_handler(_current_server_id, **kwargs):
             channel = f"<#{item.channel_id}>"
 
         if item.greeting is None:
-            greet_msg = GREETING_MESSAGE
+            greet_msg = default.GREETING_MESSAGE
         else:
             greet_msg = item.greeting
 
@@ -389,12 +323,12 @@ def status_handler(_current_server_id, **kwargs):
             reminders = reminders_disabled
 
         if item.wish_reminder_period is None:
-            period = WISH_PERIOD
+            period = default.WISH_PERIOD
         else:
             period = item.wish_reminder_period
 
         if item.wish_reminder_message is None:
-            wish_msg = WISH_MESSAGE
+            wish_msg = default.WISH_MESSAGE
         else:
             wish_msg = item.wish_reminder_message
 
@@ -483,7 +417,7 @@ all_commands = {
         server_data=None,
     ),
     "channel": BotCommand(
-        description="Set the channel where the bot will send birthday greetings",
+        description="Set the channel where the bot will send birthday greetings and reminders to set a wish",
         arguments={
             "channel": BotOption(
                 type=OptionType.CHANNEL,
@@ -522,13 +456,13 @@ all_commands = {
                 server_data=PermissionType.ReadWrite,
             ),
             "period": BotCommand(
-                description="Users without a wish will get a DM these many days before their birthday.",
+                description="Users without a wish will get a mention these many days before their birthday.",
                 arguments={
                     "days": BotOption(
                         type=OptionType.INTEGER,
                         description="Days for the period",
                         min_value=1,
-                        max_value=300,
+                        max_value=30,
                     ),
                 },
                 handler=wishing_period_handler.__name__,
@@ -536,7 +470,7 @@ all_commands = {
                 server_data=PermissionType.ReadWrite,
             ),
             "message": BotCommand(
-                description="Set the message that the bot will DM to remind to set a wish for people's birthdays.",
+                description="Set the message that the bot will send to remind to set a wish for people's birthdays.",
                 arguments={
                     "message": BotOption(
                         type=OptionType.STRING,
