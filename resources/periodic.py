@@ -24,6 +24,8 @@ def periodic_task(fun):
             if channel_id is None and message is None:
                 break
 
+            print(f"send message '{message}' to channel {channel_id}")
+
             url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
             payload = {"content": message}
             headers = {"Authorization": "Bot " + os.environ["DISCORD_BOT_TOKEN"]}
@@ -36,12 +38,15 @@ def periodic_task(fun):
 def greeting_handler(when):
     @functools.lru_cache
     def get_info(server_id):
+        print(f"retrieve server info form dynamodb for {server_id}")
         try:
             server_item = db.Servers.get(item.server_id)
         except DoesNotExist:
+            print("item does not exist")
             return None
         else:
             if server_item.channel_id is None:
+                print("channel id does not exist")
                 return None
             return (
                 server_item.greeting or default.GREETING_MESSAGE
@@ -50,10 +55,13 @@ def greeting_handler(when):
     for item in db.Users.scan(
         (db.Users.birthday_day == when.day) & (db.Users.birthday_month == when.month)
     ):
+        print(f"detected birthday for user {item.user_id} on server {item.server_id}")
         t = get_info(item.server_id)
         if t is None:
+            print("channel not set for this server, ignore")
             continue
         greeting, channel_id = t
+        print(f"will use greeting '{greeting}' and channel {channel_id}")
 
         yield channel_id, render_string(
             greeting,
@@ -63,7 +71,7 @@ def greeting_handler(when):
                 "day": item.birthday_day,
                 "month": item.birthday_month,
                 "daysleft": 0,
-                "setwishcmd": "/wishing set",
+                "setwishcmd": "`/wishing set`",
             },
         )
 
@@ -72,12 +80,15 @@ def greeting_handler(when):
 def reminder_handler(when):
     @functools.lru_cache
     def get_info(server_id):
+        print(f"retrieve server info form dynamodb for {server_id}")
         try:
             server_item = db.Servers.get(item.server_id)
         except DoesNotExist:
+            print("item does not exist")
             return None
         else:
             if server_item.channel_id is None:
+                print("channel id does not exist")
                 return None
             return (
                 (server_item.wish_reminder_period or default.WISH_PERIOD),
@@ -90,21 +101,30 @@ def reminder_handler(when):
     if next_month > 12:
         next_month -= 12
         next_year += 1
+    print(f"next month: {next_month}, next_year: {next_year}")
 
     dms = {}
     for item in db.Users.scan(
         db.Users.wish.does_not_exist()
         & db.Users.birthday_month.between(when.month, next_month)
     ):
+        print(f"detected possible reminder for user {item.user_id}")
         t = get_info(item.server_id)
         if t is None:
+            print("channel not set for this server, ignore")
             continue
 
         period, message, channel_id = t
+        print(
+            f"for this server: period is {period} message is '{message}' and channel is {channel_id}"
+        )
         birth_date = date(next_year, item.birthday_month, item.birthday_day)
+        print(f"user's next birthday is {birth_date}")
 
         delta = birth_date - when.date()
-        if delta.days > period:
+        print(f"delta: {delta}")
+        if delta.days > period or delta.days <= 0:
+            print(f"out of reminder period, skip this user")
             continue
 
         yield channel_id, render_string(
@@ -115,7 +135,7 @@ def reminder_handler(when):
                 "day": item.birthday_day,
                 "month": item.birthday_month,
                 "daysleft": delta.days,
-                "setwishcmd": "/wishing set",
+                "setwishcmd": "`/wishing set`",
             },
         )
 
@@ -127,10 +147,12 @@ def cleanup_handler(when):
     if prev_month < 1:
         prev_month += 12
         prev_year -= 1
+    print(f"prev month: {prev_month} prev_year: {prev_year}")
 
     for item in db.Users.scan(
         db.Users.wish.exists() & db.Users.birthday_month.between(prev_month, when.month)
     ):
+        print(f"remove wish for user {item.user_id}")
         item.update(actions=[db.Users.wish.remove()])
 
     yield None, None
