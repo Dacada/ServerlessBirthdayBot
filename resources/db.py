@@ -22,6 +22,8 @@ class Users(Model):
     birthday_day = NumberAttribute(null=True)
     birthday_month = NumberAttribute(null=True)
     wish = UnicodeAttribute(null=True)
+    last_reminder = NumberAttribute(null=True)
+    greeted_birthday = BooleanAttribute(null=True)
     users_by_server_index = UsersByServerIndex()
 
 

@@ -35,10 +35,7 @@ class PeriodicTasks(Construct):
                 timeout=cdk.Duration.minutes(5),
             )
             servers_table.grant_read_data(fun)
-            if handler == "cleanup":
-                users_table.grant_read_write_data(fun)
-            else:
-                users_table.grant_read_data(fun)
+            users_table.grant_read_write_data(fun)
             functions.append(fun)
 
         rule = aws_events.Rule(

@@ -2,6 +2,7 @@ import os
 import functools
 import json
 import time
+import datetime
 import requests
 from enum import Enum, IntEnum
 from dataclasses import dataclass, asdict
@@ -115,6 +116,7 @@ def get_handler(_caller, _current_server_id, user=None, **kwargs):
 
 @command_handler
 def retrieve_handler(_current_server_id, **kwargs):
+    today = datetime.date.today()
     server_id = _current_server_id
 
     result = []
@@ -134,7 +136,19 @@ def retrieve_handler(_current_server_id, **kwargs):
         else:
             wish = f'"{wish}"'
 
-        result.append(f"<@{user_id}> - {birthday} - {wish}")
+        try:
+            next_bday = datetime.date(today.year, month, day)
+        except ValueError:
+            # Cursed 29th of feburary birthday
+            next_bday = datetime.date(today.year + 1, month, day)  # uwu
+        else:
+            if next_bday < today:
+                next_bday = datetime.date(today.year + 1, month, day)
+
+        result.append((next_bday, f"<@{user_id}> - {birthday} - {wish}"))
+
+    result.sort()
+    result = [x[1] for x in result]
 
     if not result:
         return {

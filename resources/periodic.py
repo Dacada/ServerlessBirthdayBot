@@ -1,6 +1,6 @@
 import os
 import functools
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pynamodb.exceptions import DoesNotExist
 import jinja2
 import requests
@@ -104,10 +104,13 @@ def reminder_handler(when):
     print(f"next month: {next_month}, next_year: {next_year}")
 
     dms = {}
-    for item in db.Users.scan(
+    condition = (
         db.Users.wish.does_not_exist()
         & db.Users.birthday_month.between(when.month, next_month)
-    ):
+        & db.Users.last_reminder
+        < (when - timedelta(hours=23)).timestamp()
+    )
+    for item in db.Users.scan(condition):
         print(f"detected possible reminder for user {item.user_id}")
         t = get_info(item.server_id)
         if t is None:
@@ -127,6 +130,7 @@ def reminder_handler(when):
             print(f"out of reminder period, skip this user")
             continue
 
+        item.update(actions=[db.Users.last_reminder.set(when.timestamp())])
         yield channel_id, render_string(
             message,
             {
@@ -149,10 +153,15 @@ def cleanup_handler(when):
         prev_year -= 1
     print(f"prev month: {prev_month} prev_year: {prev_year}")
 
-    for item in db.Users.scan(
-        db.Users.wish.exists() & db.Users.birthday_month.between(prev_month, when.month)
-    ):
-        print(f"remove wish for user {item.user_id}")
-        item.update(actions=[db.Users.wish.remove()])
+    condition = db.Users.greeted_birthday.exists() & db.Users.birthday_month.between(
+        prev_month, when.month
+    )
+    for item in db.Users.scan(condition):
+        if item.greeted_birthday is not None:
+            if item.wish is not None:
+                print(f"remove wish for user {item.user_id}")
+                item.update(actions=[db.Users.wish.remove()])
+            print(f"remove greeted birthday mark from {item.user_id}")
+            item.update(actions=[db.Users.greeted_birthday.remove()])
 
     yield None, None
