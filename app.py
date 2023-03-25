@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
+
 import os
-
 import aws_cdk as cdk
-
-from birthday_discord_bot.birthday_discord_bot_stack import BirthdayDiscordBotStack
-
+from birthday_discord_bot import BirthdayDiscordBot
 
 app = cdk.App()
-BirthdayDiscordBotStack(
-    app,
-    "BirthdayDiscordBotStack",
-)
-
+birthday_bot_prod = BirthdayDiscordBot(app, "BirthdayDiscordBot")
 app.synth()
