@@ -265,7 +265,7 @@ def wishing_period_handler(days, _current_server_id, **kwargs):
 
 
 @command_handler
-def wishing_message_handler(message, _current_server_id, **kwargs):
+def wishing_reminder_handler(message, _current_server_id, **kwargs):
     server_id = _current_server_id
     wish_reminder_message = message
 
@@ -483,7 +483,7 @@ all_commands = {
                 user_data=None,
                 server_data=PermissionType.ReadWrite,
             ),
-            "message": BotCommand(
+            "reminder": BotCommand(
                 description="Set the message that the bot will send to remind to set a wish for people's birthdays.",
                 arguments={
                     "message": BotOption(
@@ -491,7 +491,7 @@ all_commands = {
                         description="The message the bot will send",
                     ),
                 },
-                handler=wishing_message_handler.__name__,
+                handler=wishing_reminder_handler.__name__,
                 user_data=None,
                 server_data=PermissionType.ReadWrite,
             ),

@@ -18,8 +18,8 @@ _wishing_period = _BotCommand(
     name="period",
     table_perms=perm_rw_srvr,
 )
-_wishing_message = _BotCommand(
-    name="message",
+_wishing_reminder = _BotCommand(
+    name="reminder",
     table_perms=perm_rw_srvr,
 )
 _wishing_set = _BotCommand(
@@ -53,7 +53,7 @@ _wishing = _BotCommand(
         _wishing_enable,
         _wishing_disable,
         _wishing_period,
-        _wishing_message,
+        _wishing_reminder,
         _wishing_set,
     ],
 )
