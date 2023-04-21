@@ -48,7 +48,7 @@ _greeting = _BotCommand(
     table_perms=perm_rw_srvr,
 )
 _wishing = _BotCommand(
-    name="greeting",
+    name="wishing",
     subcommands=[
         _wishing_enable,
         _wishing_disable,
