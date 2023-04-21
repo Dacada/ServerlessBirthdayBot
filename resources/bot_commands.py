@@ -285,7 +285,7 @@ def wishing_reminder_handler(message, _current_server_id, **kwargs):
 
 
 @command_handler
-def wishing_wish_handler(wish, _caller, _current_server_id, **kwargs):
+def wishing_set_handler(wish, _caller, _current_server_id, **kwargs):
     user_id = _caller["id"]
     server_id = _current_server_id
 
@@ -503,7 +503,7 @@ all_commands = {
                         description="What do you wish for?",
                     ),
                 },
-                handler=wishing_wish_handler.__name__,
+                handler=wishing_set_handler.__name__,
                 user_data=PermissionType.ReadWrite,
                 server_data=None,
             ),

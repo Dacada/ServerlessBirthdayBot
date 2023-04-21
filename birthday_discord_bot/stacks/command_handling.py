@@ -41,7 +41,7 @@ class CommandHandling(Stack):
             else:
                 for subcommand in command.subcommands:
                     name = command.name + " " + subcommand.name
-                    handler = f"{command.name}_{subcommand.name}"
+                    handler = f"{command.name}_{subcommand.name}_handler"
                     self.handler_functions[name] = self.create_command_lambda(
                         name, handler, subcommand.table_perms
                     )
