@@ -8,3 +8,7 @@ __pycache__
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Files that should absolutely not get committed
+.env
+rootkey.csv
