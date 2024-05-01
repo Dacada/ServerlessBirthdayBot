@@ -6,11 +6,11 @@ from birthday_discord_bot.data import TablePermissionType
 
 def get_lambda_args(code_asset):
     return {
-        "runtime": aws_lambda.Runtime.PYTHON_3_8,
+        "runtime": aws_lambda.Runtime.PYTHON_3_11,
         "code": aws_lambda.Code.from_asset(
             code_asset,
             bundling=cdk.BundlingOptions(
-                image=aws_lambda.Runtime.PYTHON_3_8.bundling_image,
+                image=aws_lambda.Runtime.PYTHON_3_11.bundling_image,
                 command=[
                     "bash",
                     "-c",
