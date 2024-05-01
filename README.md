@@ -1,58 +1,34 @@
+# How to build this
 
-# Welcome to your CDK Python project!
+Hello future me (most likely). If you're reading this, it's been a while since you last tried to get this thing running.
 
-This is a blank project for CDK development with Python.
-
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
-
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
-
-To manually create a virtualenv on MacOS and Linux:
-
-```
-$ python3 -m venv .venv
-```
-
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
-
-```
-$ source .venv/bin/activate
-```
-
-If you are a Windows platform, you would activate the virtualenv like this:
-
-```
-% .venv\Scripts\activate.bat
-```
-
-Once the virtualenv is activated, you can install the required dependencies.
-
-```
-$ pip install -r requirements.txt
-```
-
-At this point you can now synthesize the CloudFormation template for this code.
-
-```
-$ cdk synth
-```
-
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
-
-## Useful commands
+- Install the following if not already installed:
+  - [aws-cli](https://archlinux.org/packages/extra/any/aws-cli/)
+  - [aws-cdk](https://aur.archlinux.org/packages/aws-cdk)
+  - [nvm](https://aur.archlinux.org/packages/nvm)
+  - [docker](https://wiki.archlinux.org/title/Docker)
+    - Make sure it's properly set up as per the wiki (e.g. you can run a container)
+- Get the AWS creds, if you don't have them on hand:
+  - Check IAM > Security Credentials and create a new Access Key
+- Setup a `.env` with `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`
+  - Check where stuff is in the console for the default region
+- Get the discord bot creds if you don't have them on hand:
+  - Add some dummy value, in the follow up step when you do a diff it will show you the environment variable difference
+    and you can get the right value
+- Add to the `.env` the `DISCORD_APPLICATION_ID`, `DISCORD_BOT_TOKEN`, `DISCORD_PUBLIC_KEY`
+- Create a virtual environment and `pip install -r requirements.txt` into it
+- Install and use npm version 18 (`nvm instll 18 && nvm use 18`)
+- Remember to source the `.env`
+- If you update the python version you likely also want to update the dependencies on `resources/requirements.txt` (use a different `venv`)
+- Run `cdk synth`
+- Run `cdk diff` for each of the stacks, check nothing major changes, and get the right values for the Discord stuff if
+  you lost them
+- If you want to deploy, `cdk deploy`
+  
+## Other useful commands
 
  * `cdk ls`          list all stacks in the app
  * `cdk synth`       emits the synthesized CloudFormation template
  * `cdk deploy`      deploy this stack to your default AWS account/region
  * `cdk diff`        compare deployed stack with current state
  * `cdk docs`        open CDK documentation
-
-Enjoy!
